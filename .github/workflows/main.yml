@@ -47,7 +47,7 @@ jobs:
 
       - name: Parse toolchain path
         #if: inputs.build_toolchain == false
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           TOOLCHAIN_PATH=snapshots
 
@@ -125,7 +125,7 @@ jobs:
 
       - name: Prepare prebuilt tools
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           mkdir -p staging_dir build_dir
           ln -s /prebuilt_tools/staging_dir/host staging_dir/host
@@ -137,7 +137,7 @@ jobs:
         #if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type != 'internal' && steps.parse-toolchain.outputs.toolchain-type != 'external_container'
         if: steps.parse-toolchain.outputs.toolchain-type != 'internal' && steps.parse-toolchain.outputs.toolchain-type != 'external_container'
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/${{ env.TOOLCHAIN_FILE }}
           wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums.asc
@@ -151,7 +151,7 @@ jobs:
         #if: inputs.build_toolchain == false && steps.parse-prebuilt-llvm.outputs.llvm-type == 'external'
         if: steps.parse-prebuilt-llvm.outputs.llvm-type == 'external'
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/${{ env.LLVM_FILE }}
           wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums.asc
@@ -163,13 +163,13 @@ jobs:
 
       - name: Clean configuration
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           rm -rf .config
 
       - name: Configure
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           echo CONFIG_KERNEL_WERROR=y >> .config
           echo CONFIG_TARGET_MULTI_PROFILE=y >> .config
@@ -180,7 +180,7 @@ jobs:
         #if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_container'
         if: steps.parse-toolchain.outputs.toolchain-type == 'external_container'
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           echo CONFIG_DEVEL=y >> .config
           echo CONFIG_AUTOREMOVE=y >> .config
@@ -194,7 +194,7 @@ jobs:
         #if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_toolchain'
         if: steps.parse-toolchain.outputs.toolchain-type == 'external_toolchain'
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           echo CONFIG_DEVEL=y >> .config
           echo CONFIG_AUTOREMOVE=y >> .config
@@ -207,7 +207,7 @@ jobs:
       - name: Adapt external sdk to external toolchain format
         if: steps.parse-toolchain.outputs.toolchain-type == 'external_sdk'
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           TOOLCHAIN_DIR=${{ env.TOOLCHAIN_NAME }}/staging_dir/$(ls ${{ env.TOOLCHAIN_NAME }}/staging_dir | grep toolchain)
           TOOLCHAIN_BIN=$TOOLCHAIN_DIR/bin
@@ -235,7 +235,7 @@ jobs:
       - name: Configure external toolchain with sdk
         if: steps.parse-toolchain.outputs.toolchain-type == 'external_sdk'
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           echo CONFIG_DEVEL=y >> .config
           echo CONFIG_AUTOREMOVE=y >> .config
@@ -248,41 +248,41 @@ jobs:
       - name: Configure prebuilt llvm
         if: steps.parse-prebuilt-llvm.outputs.llvm-type == 'external'
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           echo CONFIG_USE_LLVM_PREBUILT=y >> .config
 
       - name: Show configuration
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: ./scripts/diffconfig.sh
 
       - name: Build tools
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
       - name: Build toolchain
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: make toolchain/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
       - name: Build Kernel
         #if: inputs.build_kernel == true
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
       - name: Build Kernel Kmods
         #if: inputs.build_kernel == true
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
       - name: Build DTBs
         #if: inputs.build_dtb == true
         shell: su buildbot -c "sh -e {0}"
-        working-directory: openwrt
+        #working-directory: openwrt
         run: |
           # Check if special dtb makefile target is available
           # For this to correctly work, a .config is required but this is already done by
