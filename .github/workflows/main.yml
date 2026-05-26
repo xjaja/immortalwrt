@@ -35,6 +35,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Fix Git dubious ownership
+        run: git config --global --add safe.directory '*'
+
       - name: Free up some space in Host Github Image
         shell: sh -c "nsenter -t 1 -a sh -e /home/runner/$(echo {0} | sed s#^/__w#work#)"
         env:
