@@ -124,7 +124,7 @@ jobs:
 
       - name: Fix permission
         run: |
-          chown -R buildbot:buildbot openwrt
+          chown -R buildbot:buildbot .
 
       - name: Prepare prebuilt tools
         shell: su buildbot -c "sh -e {0}"
