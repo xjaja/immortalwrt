@@ -11,6 +11,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: List directory structure
+        run: find . -type f -name "*.dts" | ls -R
+
       - name: Install dependencies (dtc device-tree-compiler)
         run: |
           sudo apt update
