@@ -21,9 +21,9 @@ jobs:
 
       - name: Compile RK3568 DTB
         run: |
-          dtc -I dts -O dts -H epapr -@ \
-            ./my3568/232-v25.dts \
-            -o 232-v25-dtcc.dts
+          dtc -I dtb -O dts -H epapr -@ \
+            ./my3568/232-v25.dtb \
+            -o 232-v25-dtccdtb.dts
 
       # 上传编译好的 dtb 供下载
       - name: Upload DTB artifact
