@@ -11,8 +11,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: List directory structure
-        run: find . -type f -name "*.dts" | ls -R
+      #- name: List directory structure
+      #  run: find . -type f -name "*.dts" | head -20
 
       - name: Install dependencies (dtc device-tree-compiler)
         run: |
@@ -22,7 +22,7 @@ jobs:
       - name: Compile RK3568 DTB
         run: |
           dtc -I dts -O dts -H epapr -@ \
-            my3568/232-v25.dts \
+            ./my3568/232-v25.dts \
             -o 232-v25-dtcc.dts
 
       # 上传编译好的 dtb 供下载
