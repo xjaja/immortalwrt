@@ -314,6 +314,11 @@ jobs:
 
           make target/linux/dtb -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
+      - name: Build everything
+        shell: su buildbot -c "sh -e {0}"
+        #working-directory: openwrt
+        run: make -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
