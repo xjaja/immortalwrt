@@ -84,7 +84,7 @@ jobs:
       run: ./scripts/diffconfig.sh
 
     - name: Build tools
-      if: false
+      #if: false
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
