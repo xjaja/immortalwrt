@@ -30,6 +30,11 @@ jobs:
         path: openwrt
         fetch-depth: 0
 
+    - name: Fix permission
+      run: |
+        chown -R buildbot:buildbot openwrt
+        chmod +x openwrt/.github/workflows/scripts/*.sh
+
     - name: Fix Git dubious ownership
       run: git config --global --add safe.directory '*'
 
@@ -42,10 +47,6 @@ jobs:
             for dir in $DELETE_DIR; do
                 sudo rsync -a --delete /empty/ $dir
             done
-
-    - name: Fix permission
-      run: |
-        chown -R buildbot:buildbot openwrt
 
     - name: Prepare prebuilt tools
       shell: su buildbot -c "sh -e {0}"
@@ -84,7 +85,7 @@ jobs:
       run: ./scripts/diffconfig.sh
 
     - name: Build tools
-      #if: false
+      if: false
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
@@ -99,7 +100,8 @@ jobs:
       #if: inputs.build_kernel == true
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
-      run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+      #run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+      run: make target/compile -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Build Kernel Kmods
       if: false
