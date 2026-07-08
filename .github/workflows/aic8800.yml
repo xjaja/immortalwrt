@@ -84,13 +84,13 @@ jobs:
       run: ./scripts/diffconfig.sh
 
     - name: Build tools
-      if: 0
+      if: false
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Build toolchain
-      if: 0
+      if: false
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: make toolchain/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
@@ -102,13 +102,13 @@ jobs:
       run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Build Kernel Kmods
-      if: 0
+      if: false
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Build everything
-      if: 1
+      if: true
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: |
@@ -116,7 +116,7 @@ jobs:
         make package/kernel/aic8800/compile package -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
 
     - name: Upload build artifacts
-      if: 0
+      if: false
       uses: actions/upload-artifact@v4
       with:
         name: openwrt-${{ env.target }}-${{ env.subtarget }}-firmware
