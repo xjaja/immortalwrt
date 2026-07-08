@@ -105,7 +105,7 @@ jobs:
       if: 0
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
-        run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+      run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Build everything
       if: 1
