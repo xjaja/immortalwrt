@@ -107,13 +107,14 @@ jobs:
       working-directory: openwrt
       run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
+
     - name: Build everything
       if: true
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: |
     #    ls -alhR outccc/arch/arm64/boot/dts/rockchip/
-        make package/kernel/aic8800/compile package -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+        make package/kernel/aic8800/compile package -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Upload build artifacts
       if: false
