@@ -1,378 +1,146 @@
-name: Build ImmortalWrt 25.12
+name: aic8800
 
 on:
   workflow_dispatch:  # 允许手动触发
-  
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-3568:
+  build:
     name: Build rockchip/armv8
-    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/openwrt/toolchain:rockchip-armv8-openwrt-25.12
+      options: --privileged --pid=host
+
     env:
       SHOW_FAILURES_SCRIPT: .github/workflows/scripts/show_build_failures.sh
       container_name: toolchain
       target: rockchip
       subtarget: armv8
-      build_kernel: true
-      build_all_kmods: false  # 不需要所有内核模块，加速编译
-      build_dtb: true  # 必须开启，编译DTB
-      upload_ccache_cache: false  # 🔴 禁用S3缓存，个人仓库没有S3权限
-      check: false  # 禁用包检查，加速编译
 
-    container:
-      image: ghcr.io/openwrt/toolchain:rockchip-armv8-openwrt-25.12
-      options: --privileged --pid=host
-
-    permissions:
-      contents: read
-      packages: read
-      actions: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Fix Git dubious ownership
-        run: git config --global --add safe.directory '*'
-
-      - name: Free up some space in Host Github Image
-        shell: sh -c "nsenter -t 1 -a sh -e /home/runner/$(echo {0} | sed s#^/__w#work#)"
-        env:
-          DELETE_DIR: /usr/local/lib/android /usr/local/.ghcup /usr/share/dotnet /usr/share/swift
-        run: |
-          mkdir /empty
-          for dir in $DELETE_DIR; do
-            sudo rsync -a --delete /empty/ $dir
-          done
-
-      - name: Parse toolchain path
-        #if: inputs.build_toolchain == false
-        #working-directory: openwrt
-        run: |
-          TOOLCHAIN_PATH=snapshots
-
-          if [ -n "${{ github.base_ref }}" ]; then
-            if echo "${{ github.base_ref }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
-              major_ver="$(echo ${{ github.base_ref }} | sed 's/^openwrt-/v/')"
-            fi
-          elif [ "${{ github.ref_type }}" = "branch" ]; then
-            if echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
-              major_ver="$(echo ${{ github.ref_name }} | sed 's/^openwrt-/v/')"
-            elif echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]-'; then
-              major_ver="$(echo ${{ github.ref_name }} | sed 's/^openwrt-\([0-9][0-9]\.[0-9][0-9]\)-.*/v\1/')"
-            fi
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            if echo "${{ github.ref_name }}" | grep -q -E '^v[0-9][0-9]\.[0-9][0-9]\..+'; then
-              major_ver="$(echo ${{ github.ref_name }} | sed 's/^\(v[0-9][0-9]\.[0-9][0-9]\)\..\+/\1/')"
-            fi
-          fi
-
-          if [ -n "$major_ver" ]; then
-            git fetch --tags -f
-            latest_tag="$(git tag --sort=-creatordate -l $major_ver* | head -n1)"
-            if [ -n "$latest_tag" ]; then
-              TOOLCHAIN_PATH=releases/$(echo $latest_tag | sed 's/^v//')
-            fi
-          fi
-
-          SUMS_FILE="https://downloads.cdn.openwrt.org/$TOOLCHAIN_PATH/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums"
-
-          echo "TOOLCHAIN_PATH=$TOOLCHAIN_PATH" >> "$GITHUB_ENV"
-          echo "SUMS_FILE=$SUMS_FILE" >> "$GITHUB_ENV"
-
-      - name: Parse toolchain file
-        #if: inputs.build_toolchain == false
-        id: parse-toolchain
-        run: |
-          if [ -d /external-toolchain/ ]; then
-            echo "toolchain-type=external_container" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if curl ${{ env.SUMS_FILE }} | grep -qP ".*openwrt-toolchain.*tar.(xz|zst)"; then
-            TOOLCHAIN_STRING="$( curl ${{ env.SUMS_FILE }} | grep -P ".*openwrt-toolchain.*tar.(xz|zst)")"
-            TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -E -e 's/.*(openwrt-toolchain.*.tar.(xz|zst))$/\1/p')
-
-            echo "toolchain-type=external_toolchain" >> $GITHUB_OUTPUT
-          elif curl ${{ env.SUMS_FILE }} | grep -qP ".*openwrt-sdk.*tar.(xz|zst)"; then
-            TOOLCHAIN_STRING="$( curl ${{ env.SUMS_FILE }} | grep -P ".*openwrt-sdk.*tar.(xz|zst)")"
-            TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -E -e 's/.*(openwrt-sdk.*.tar.(xz|zst))$/\1/p')
-
-            echo "toolchain-type=external_sdk" >> $GITHUB_OUTPUT
-          else
-            echo "toolchain-type=internal" >> $GITHUB_OUTPUT
-          fi
-
-          echo "TOOLCHAIN_FILE=$TOOLCHAIN_FILE" >> "$GITHUB_ENV"
-          echo "TOOLCHAIN_NAME=$(echo $TOOLCHAIN_FILE | sed -E -e 's/.tar.(xz|zst)$//')" >> "$GITHUB_ENV"
-
-      - name: Prase prebuilt llvm file
-        #if: inputs.build_toolchain == false
-        id: parse-prebuilt-llvm
-        run: |
-          if curl ${{ env.SUMS_FILE }} | grep -qP ".*llvm-bpf.*tar.(xz|zst)"; then
-            LLVM_STRING="$( curl ${{ env.SUMS_FILE }} | grep -P ".*llvm-bpf.*tar.(xz|zst)")"
-            LLVM_FILE=$(echo "$LLVM_STRING" | sed -n -E -e 's/.*(llvm-bpf.*.tar.(xz|zst))$/\1/p')
-
-            echo "llvm-type=external" >> $GITHUB_OUTPUT
-          fi
-
-          echo "LLVM_FILE=$LLVM_FILE" >> "$GITHUB_ENV"
-
-      - name: Fix permission
-        run: |
-          chown -R buildbot:buildbot .
-
-      - name: Prepare prebuilt tools
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          mkdir -p staging_dir build_dir
-          ln -s /prebuilt_tools/staging_dir/host staging_dir/host
-          ln -s /prebuilt_tools/build_dir/host build_dir/host
-
-          ./scripts/ext-tools.sh --refresh
-
-      - name: Checkout OpenWrt keyring
-        if: ((steps.parse-toolchain.outputs.toolchain-type != 'internal' && steps.parse-toolchain.outputs.toolchain-type != 'external_container') ||
-          steps.parse-prebuilt-llvm.outputs.llvm-type == 'external')
-        uses: actions/checkout@v6
-        with:
-          repository: openwrt/keyring
-          path: keyring
-          sparse-checkout: |
-            gpg/CD54E82DADB3684D.asc
-            gpg/0x1D53D1877742E911.asc
-            gpg/626471F1.asc
-          sparse-checkout-cone-mode: false
-
-      - name: Import GPG keys
-        shell: su buildbot -c "sh -e {0}"
-        if: ((steps.parse-toolchain.outputs.toolchain-type != 'internal' && steps.parse-toolchain.outputs.toolchain-type != 'external_container') ||
-          steps.parse-prebuilt-llvm.outputs.llvm-type == 'external')
-        run: gpg --import keyring/gpg/CD54E82DADB3684D.asc keyring/gpg/0x1D53D1877742E911.asc keyring/gpg/626471F1.asc
-
-      - name: Download external toolchain/sdk
-        #if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type != 'internal' && steps.parse-toolchain.outputs.toolchain-type != 'external_container'
-        if: steps.parse-toolchain.outputs.toolchain-type != 'internal' && steps.parse-toolchain.outputs.toolchain-type != 'external_container'
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/${{ env.TOOLCHAIN_FILE }}
-          wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums.asc
-          wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums
-          gpg --with-fingerprint --verify sha256sums.asc
-          sha256sum --check --ignore-missing sha256sums
-          tar -xf ${{ env.TOOLCHAIN_FILE }}
-          rm ${{ env.TOOLCHAIN_FILE }} sha256sums
-
-      - name: Download and extract prebuilt llvm
-        #if: inputs.build_toolchain == false && steps.parse-prebuilt-llvm.outputs.llvm-type == 'external'
-        if: steps.parse-prebuilt-llvm.outputs.llvm-type == 'external'
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/${{ env.LLVM_FILE }}
-          wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums.asc
-          wget https://downloads.cdn.openwrt.org/${{ env.TOOLCHAIN_PATH }}/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums
-          gpg --with-fingerprint --verify sha256sums.asc
-          sha256sum --check --ignore-missing sha256sums
-          tar -xf ${{ env.LLVM_FILE }}
-          rm ${{ env.LLVM_FILE }} sha256sums
-
-      - name: Clean configuration
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          rm -rf .config
-
-      - name: Configure
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          echo CONFIG_KERNEL_WERROR=y >> .config
-          echo CONFIG_TARGET_MULTI_PROFILE=y >> .config
-          echo CONFIG_TARGET_PER_DEVICE_ROOTFS=y >> .config
-          echo CONFIG_TARGET_ALL_PROFILES=y >> .config
-
-      - name: Configure external toolchain in container
-        #if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_container'
-        if: steps.parse-toolchain.outputs.toolchain-type == 'external_container'
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          echo CONFIG_DEVEL=y >> .config
-          echo CONFIG_AUTOREMOVE=y >> .config
-
-          ./scripts/ext-toolchain.sh \
-            --toolchain /external-toolchain/$(ls /external-toolchain/ | grep openwrt-toolchain)/toolchain-* \
-            --overwrite-config \
-            --config ${{ env.target }}/${{ env.subtarget }}
-
-      - name: Configure external toolchain
-        #if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_toolchain'
-        if: steps.parse-toolchain.outputs.toolchain-type == 'external_toolchain'
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          echo CONFIG_DEVEL=y >> .config
-          echo CONFIG_AUTOREMOVE=y >> .config
-
-          ./scripts/ext-toolchain.sh \
-            --toolchain ${{ env.TOOLCHAIN_NAME }}/toolchain-* \
-            --overwrite-config \
-            --config ${{ env.target }}/${{ env.subtarget }}
-
-      - name: Adapt external sdk to external toolchain format
-        if: steps.parse-toolchain.outputs.toolchain-type == 'external_sdk'
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          TOOLCHAIN_DIR=${{ env.TOOLCHAIN_NAME }}/staging_dir/$(ls ${{ env.TOOLCHAIN_NAME }}/staging_dir | grep toolchain)
-          TOOLCHAIN_BIN=$TOOLCHAIN_DIR/bin
-          OPENWRT_DIR=$(pwd)
-
-          # Find target name from toolchain info.mk
-          GNU_TARGET_NAME=$(cat $TOOLCHAIN_DIR/info.mk | grep TARGET_CROSS | sed 's/^TARGET_CROSS=\(.*\)-$/\1/')
-
-          cd $TOOLCHAIN_BIN
-
-          # Revert sdk wrapper scripts applied to all the bins
-          for app in $(find . -name "*.bin"); do
-            TARGET_APP=$(echo $app | sed 's/\.\/\.\(.*\)\.bin/\1/')
-            rm $TARGET_APP
-            mv .$TARGET_APP.bin $TARGET_APP
-          done
-
-          # Setup the wrapper script in the sdk toolchain dir simulating an external toolchain build
-          cp $OPENWRT_DIR/target/toolchain/files/wrapper.sh $GNU_TARGET_NAME-wrapper.sh
-          for app in cc gcc g++ c++ cpp ld as ; do
-            [ -f $GNU_TARGET_NAME-$app ] && mv $GNU_TARGET_NAME-$app $GNU_TARGET_NAME-$app.bin
-            ln -sf $GNU_TARGET_NAME-wrapper.sh $GNU_TARGET_NAME-$app
-          done
-
-      - name: Configure external toolchain with sdk
-        if: steps.parse-toolchain.outputs.toolchain-type == 'external_sdk'
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          echo CONFIG_DEVEL=y >> .config
-          echo CONFIG_AUTOREMOVE=y >> .config
-
-          ./scripts/ext-toolchain.sh \
-            --toolchain ${{ env.TOOLCHAIN_NAME }}/staging_dir/toolchain-* \
-            --overwrite-config \
-            --config ${{ env.target }}/${{ env.subtarget }}
-
-      - name: Configure prebuilt llvm
-        if: steps.parse-prebuilt-llvm.outputs.llvm-type == 'external'
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          echo CONFIG_USE_LLVM_PREBUILT=y >> .config
-
-      - name: Show configuration
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: ./scripts/diffconfig.sh
-
-      - name: Build tools
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
-
-      - name: Build toolchain
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: make toolchain/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
-
-      - name: Build Kernel
-        #if: inputs.build_kernel == true
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
-
-      - name: Build Kernel Kmods
-        #if: inputs.build_kernel == true
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
-
-      - name: Build DTBs
-        #if: inputs.build_dtb == true
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: |
-          # Check if special dtb makefile target is available
-          # For this to correctly work, a .config is required but this is already done by
-          # previous steps
-          TOPDIR=$(pwd) make -C target/linux dtb -q >/dev/null 2>/dev/null || ret=$?
-          [ $ret = 2 ] && exit 0
-
-          make target/linux/dtb -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
-
-      - name: Build everything
-        shell: su buildbot -c "sh -e {0}"
-        #working-directory: openwrt
-        run: make -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: openwrt-${{ env.target }}-${{ env.subtarget }}-firmware
-          retention-days: 2
-          path: |
-            # 最终固件（img / bin 最重要）
-            bin/targets/${{ env.target }}/${{ env.subtarget }}/*.img
-            bin/targets/${{ env.target }}/${{ env.subtarget }}/*.bin
-            
-            # 设备树 DTB
-            bin/targets/${{ env.target }}/${{ env.subtarget }}/*.dtb
-            
-            # 校验和文件
-            bin/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums
-            
-            # 内核文件
-            bin/targets/${{ env.target }}/${{ env.subtarget }}/vmlinux
-            bin/targets/${{ env.target }}/${{ env.subtarget }}/zImage
-            
-            # DTS 设备树源码（从编译目录提取）
-            build_dir/target-*/linux-*/arch/arm64/boot/dts/rockchip/*.dts
-            build_dir/target-*/linux-*/arch/arm64/boot/dts/rockchip/*.dtsi
-            
-            # 完整编译日志
-            logs/
-
-  build-dtb:
     runs-on: ubuntu-latest
-    needs: build-3568
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: openwrt-25.12
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: openwrt-25.12
+        path: openwrt
+        fetch-depth: 0
 
-      - name: Install dependencies (dtc device-tree-compiler)
-        run: |
-          sudo apt update
-          sudo apt install -y device-tree-compiler
+    - name: Fix permission
+      run: |
+        chown -R buildbot:buildbot openwrt
+        chmod +x openwrt/.github/workflows/scripts/*.sh
 
-      # 这里改成你自己的 dts 路径和输出文件名
-      - name: Compile RK3568 DTB
-        run: |
-          dtc -I dts -O dtb -W no-unit_address_vs_reg \
-            my3568/232-v25.dts \
-            -o 232-v25.dtb
+    - name: Fix Git dubious ownership
+      run: git config --global --add safe.directory '*'
 
-      # 上传编译好的 dtb 供下载
-      - name: Upload DTB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: 232-v25-dtb
-          path: |
-            *.dtb
-            *.dts
-          retention-days: 2
+    - name: Free up some space in Host Github Image
+      shell: sh -c "nsenter -t 1 -a sh -e /home/runner/$(echo {0} | sed s#^/__w#work#)"
+      env:
+        DELETE_DIR: /usr/local/lib/android /usr/local/.ghcup /usr/share/dotnet /usr/share/swift
+      run: |
+            mkdir /empty
+            for dir in $DELETE_DIR; do
+                sudo rsync -a --delete /empty/ $dir
+            done
+
+    - name: Prepare prebuilt tools
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+        mkdir -p staging_dir build_dir
+        ln -s /prebuilt_tools/staging_dir/host staging_dir/host
+        ln -s /prebuilt_tools/build_dir/host build_dir/host
+
+        ./scripts/ext-tools.sh --refresh
+
+    - name: Clean configuration
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+        rm -rf .config
+
+    - name: Configure all modules
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+
+        echo CONFIG_ALL_KMODS=y >> .config
+
+        echo CONFIG_DEVEL=y >> .config
+        echo CONFIG_AUTOREMOVE=y >> .config
+
+        echo "CONFIG_TARGET_${{ env.target }}=y" >> .config
+        echo "CONFIG_TARGET_${{ env.target }}_${{ env.subtarget }}=y" >> .config
+
+        make defconfig
+
+    - name: Show configuration
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: ./scripts/diffconfig.sh
+
+    - name: Build tools
+      #if: false
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Build toolchain
+      #if: false
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: make toolchain/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Build Kernel
+      #if: inputs.build_kernel == true
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Build Kernel Kmods
+      if: false
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Build everything
+      if: true
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+
+        #ls -alhR outccc/arch/arm64/boot/dts/rockchip/
+        make package/kernel/aic8800/compile package -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Upload build artifacts
+      if: false
+      uses: actions/upload-artifact@v4
+      with:
+        name: openwrt-${{ env.target }}-${{ env.subtarget }}-firmware
+        retention-days: 2
+        path: |
+          # 最终固件（img / bin 最重要）
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/*.img
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/*.bin
+          
+          # 设备树 DTB
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/*.dtb
+          
+          # 校验和文件
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums
+          
+          # 内核文件
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/vmlinux
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/zImage
+          
+          # DTS 设备树源码（从编译目录提取）
+          build_dir/target-*/linux-*/arch/arm64/boot/dts/rockchip/*.dts
+          build_dir/target-*/linux-*/arch/arm64/boot/dts/rockchip/*.dtsi
+          
+          # 完整编译日志
+          logs/
