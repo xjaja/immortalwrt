@@ -132,7 +132,7 @@ jobs:
         #make package/kernel/aic8800/compile package -j1 BUILD_LOG=1 AUTOREMOVE=n V=s || ret=$? $SHOW_FAILURES_SCRIPT
         #ls -alhR bin/ build_dir/
 
-        make package/kernel/aic8800/compile -j$(nproc) CONFIG_AUTOREMOVE=n BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+        make package/kernel/aic8800/compile -j1 V=s CONFIG_AUTOREMOVE=n BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
         #ls -alhR  build_dir/
 
         mkdir -p ./aic8800_debug_log
