@@ -49,6 +49,7 @@ jobs:
             done
 
     - name: Prepare prebuilt tools
+      if: false
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: |
@@ -100,8 +101,8 @@ jobs:
       #if: inputs.build_kernel == true
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
-      #run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
-      run: make target/compile -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+      run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+      #run: make target/compile -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Build Kernel Kmods
       if: false
