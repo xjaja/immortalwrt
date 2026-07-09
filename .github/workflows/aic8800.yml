@@ -138,7 +138,7 @@ jobs:
         mkdir -p ./aic8800_debug_log
         #find build_dir/target-*/aic8800-* \( -name "*.cmd" -o -name "Module.symvers" \) -exec cp {} ./aic8800_debug_log/ \;
 
-        make package/kernel/aic8800/package -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+        make package/kernel/aic8800/package -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
         
         ls -alhR  build_dir/ | grep aic8800
 
