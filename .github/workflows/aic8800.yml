@@ -59,6 +59,12 @@ jobs:
 
         ./scripts/ext-tools.sh --refresh
 
+    - name: Clean configuration
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+        rm -rf .config
+
     - name: Configure external toolchain in container
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
@@ -68,12 +74,6 @@ jobs:
           --toolchain /external-toolchain/$(ls /external-toolchain/ | grep openwrt-toolchain)/toolchain-* \
           --overwrite-config \
           --config ${{ env.target }}/${{ env.subtarget }}
-
-    - name: Clean configuration
-      shell: su buildbot -c "sh -e {0}"
-      working-directory: openwrt
-      run: |
-        rm -rf .config
 
     - name: Configure all modules
       shell: su buildbot -c "sh -e {0}"
@@ -96,7 +96,7 @@ jobs:
       run: ./scripts/diffconfig.sh
 
     - name: Build tools
-      if: false
+      #if: false
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
