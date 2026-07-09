@@ -102,7 +102,7 @@ jobs:
       run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Build toolchain
-      if: false
+      #if: false
       shell: su buildbot -c "sh -e {0}"
       working-directory: openwrt
       run: make toolchain/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
@@ -126,8 +126,8 @@ jobs:
       working-directory: openwrt
       run: |
 
-        #ls -alhR outccc/arch/arm64/boot/dts/rockchip/
-        make package/kernel/aic8800/compile package -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+        ls -alhR .
+        make package/kernel/aic8800/compile package -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Upload build artifacts
       if: false
