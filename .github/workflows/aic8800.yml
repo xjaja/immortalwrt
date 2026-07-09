@@ -81,6 +81,8 @@ jobs:
       run: |
 
         echo CONFIG_ALL_KMODS=y >> .config
+        
+        CONFIG_PACKAGE_kmod-aic8800-sdio=y >> .config
 
         echo CONFIG_DEVEL=y >> .config
         echo CONFIG_AUTOREMOVE=y >> .config
@@ -126,8 +128,9 @@ jobs:
       working-directory: openwrt
       run: |
 
-        ls -alhR .
-        make package/kernel/aic8800/compile package -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+        make package/kernel/aic8800/download V=s || ret=$? $SHOW_FAILURES_SCRIPT
+        make package/kernel/aic8800/compile package -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+        ls -alhR bin/ build_dir/
 
     - name: Upload build artifacts
       if: false
