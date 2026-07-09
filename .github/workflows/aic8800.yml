@@ -129,11 +129,15 @@ jobs:
       run: |
 
         make package/kernel/aic8800/download V=s || ret=$? $SHOW_FAILURES_SCRIPT
-        make package/kernel/aic8800/compile package -j1 BUILD_LOG=1 AUTOREMOVE=n V=s || ret=$? $SHOW_FAILURES_SCRIPT
+        #make package/kernel/aic8800/compile package -j1 BUILD_LOG=1 AUTOREMOVE=n V=s || ret=$? $SHOW_FAILURES_SCRIPT
         #ls -alhR bin/ build_dir/
+
+        make package/kernel/aic8800/compile -j$(nproc) AUTOREMOVE=n BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
         mkdir -p ./aic8800_debug_log
         find build_dir/target-*/aic8800-* \( -name "*.cmd" -o -name "Module.symvers" \) -exec cp {} ./aic8800_debug_log/ \;
+
+        make package/kernel/aic8800/package -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
