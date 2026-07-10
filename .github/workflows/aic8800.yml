@@ -142,7 +142,9 @@ jobs:
           -exec sh -c '
             for file do
               rel="${file#build_dir/}"
-              dst="./aic8800_debug_log/$rel"
+              filename="${file##*/}"
+              newname="${filename#.}"
+              dst="./aic8800_debug_log/$(dirname "$rel")/$newname"
               mkdir -p "$(dirname "$dst")"
               cp "$file" "$dst"
             done
@@ -158,7 +160,8 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: openwrt-${{ env.target }}-${{ env.subtarget }}-firmware
+        name: openwrt-${{ env.target }}-${{ env.subtarget }}-log
+        include-hidden-files: true
         retention-days: 2
         path: |
           openwrt/bin/targets/${{ env.target }}/${{ env.subtarget }}/packages/*aic8800*.apk
