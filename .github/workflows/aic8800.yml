@@ -137,8 +137,8 @@ jobs:
 
         mkdir -p ./aic8800_debug_log
         find build_dir -type f \( -name "*.cmd" -o -name "Module.symvers" \) -exec cp {} ./aic8800_debug_log/ \;
-        ls -alhR  build_dir/ | grep aic8800
-        ls -alhR  aic8800_debug_log/
+        #ls -alhR  build_dir/ | grep aic8800
+        #ls -alhR  aic8800_debug_log/
 
         #make package/kernel/aic8800/package -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
         
@@ -150,9 +150,9 @@ jobs:
         name: openwrt-${{ env.target }}-${{ env.subtarget }}-firmware
         retention-days: 2
         path: |
-          bin/targets/${{ env.target }}/${{ env.subtarget }}/packages/*aic8800*.apk
-          aic8800_debug_log/
-          logs/package/kmod-aic8800-sdio/
+          openwrt/bin/targets/${{ env.target }}/${{ env.subtarget }}/packages/*aic8800*.apk
+          openwrt/aic8800_debug_log/
+          openwrt/logs/package/kmod-aic8800-sdio/
 
     - name: Upload build artifacts
       if: false
