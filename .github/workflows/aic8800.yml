@@ -129,14 +129,14 @@ jobs:
       run: |
 
         make package/kernel/aic8800/download V=s || ret=$? $SHOW_FAILURES_SCRIPT
-        #make package/kernel/aic8800/compile package -j1 BUILD_LOG=1 AUTOREMOVE=n V=s || ret=$? $SHOW_FAILURES_SCRIPT
+        #make package/kernel/aic8800/compile DEBUG=all BUILD_LOG=1 AUTOREMOVE=n V=s || ret=$? $SHOW_FAILURES_SCRIPT
         #ls -alhR bin/ build_dir/
 
         make package/kernel/aic8800/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
-        ls -alhR  build_dir/ | grep aic8800
+        #ls -alhR  build_dir/ | grep aic8800
 
         mkdir -p ./aic8800_debug_log
-        find build_dir/target-*/aic8800-* -type f \( -name "*.cmd" -o -name "Module.symvers" \) -exec cp {} ./aic8800_debug_log/ \;
+        find build_dir -type f \( -name "*.cmd" -o -name "Module.symvers" \) -exec cp {} ./aic8800_debug_log/ \;
         #ls -alhR  build_dir/ | grep aic8800
 
         #make package/kernel/aic8800/package -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
