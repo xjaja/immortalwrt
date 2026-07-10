@@ -136,7 +136,18 @@ jobs:
         #ls -alhR  build_dir/ | grep aic8800
 
         mkdir -p ./aic8800_debug_log
-        find build_dir -type f \( -name "*.cmd" -o -name "Module.symvers" \) -exec cp {} ./aic8800_debug_log/ \;
+        find build_dir -type f \
+          \( -name "*.cmd" -o -name "Module.symvers" \) \
+          -path "*aic8800*" \
+          -exec sh -c '
+            for file do
+              rel="${file#build_dir/}"
+              dst="./aic8800_debug_log/$rel"
+              mkdir -p "$(dirname "$dst")"
+              cp "$file" "$dst"
+            done
+          ' sh {} +
+
         #ls -alhR  build_dir/ | grep aic8800
         #ls -alhR  aic8800_debug_log/
 
