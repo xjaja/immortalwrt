@@ -1,0 +1,197 @@
+name: aic8800
+
+on:
+  workflow_dispatch:  # 允许手动触发
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build rockchip/armv8
+    container:
+      image: ghcr.io/openwrt/toolchain:rockchip-armv8-openwrt-25.12
+      options: --privileged --pid=host
+
+    env:
+      SHOW_FAILURES_SCRIPT: .github/workflows/scripts/show_build_failures.sh
+      container_name: toolchain
+      target: rockchip
+      subtarget: armv8
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: openwrt-25.12
+        path: openwrt
+        fetch-depth: 0
+
+    - name: Fix permission
+      run: |
+        chown -R buildbot:buildbot openwrt
+        chmod +x openwrt/.github/workflows/scripts/*.sh
+
+    - name: Fix Git dubious ownership
+      run: git config --global --add safe.directory '*'
+
+    - name: Free up some space in Host Github Image
+      shell: sh -c "nsenter -t 1 -a sh -e /home/runner/$(echo {0} | sed s#^/__w#work#)"
+      env:
+        DELETE_DIR: /usr/local/lib/android /usr/local/.ghcup /usr/share/dotnet /usr/share/swift
+      run: |
+            mkdir /empty
+            for dir in $DELETE_DIR; do
+                sudo rsync -a --delete /empty/ $dir
+            done
+
+    - name: Prepare prebuilt tools
+      if: false
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+        mkdir -p staging_dir build_dir
+        ln -s /prebuilt_tools/staging_dir/host staging_dir/host
+        ln -s /prebuilt_tools/build_dir/host build_dir/host
+
+        ./scripts/ext-tools.sh --refresh
+
+    - name: Clean configuration
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+        rm -rf .config
+
+    - name: Configure external toolchain in container
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+
+        ./scripts/ext-toolchain.sh \
+          --toolchain /external-toolchain/$(ls /external-toolchain/ | grep openwrt-toolchain)/toolchain-* \
+          --overwrite-config \
+          --config ${{ env.target }}/${{ env.subtarget }}
+
+    - name: Configure all modules
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+
+        #echo CONFIG_ALL_KMODS=y >> .config
+        
+        echo CONFIG_PACKAGE_kmod-aic8800-sdio=y >> .config
+
+        echo CONFIG_DEVEL=y >> .config
+        #echo CONFIG_AUTOREMOVE=y >> .config
+
+        echo "CONFIG_TARGET_${{ env.target }}=y" >> .config
+        echo "CONFIG_TARGET_${{ env.target }}_${{ env.subtarget }}=y" >> .config
+
+        make defconfig
+
+    - name: Show configuration
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: ./scripts/diffconfig.sh
+
+    - name: Build tools
+      #if: false
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Build toolchain
+      #if: false
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: make toolchain/install -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Build Kernel
+      #if: inputs.build_kernel == true
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+      #run: make target/compile -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Build Kernel Kmods
+      if: false
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+
+    - name: Build everything
+      if: true
+      shell: su buildbot -c "sh -e {0}"
+      working-directory: openwrt
+      run: |
+
+        make package/kernel/aic8800/download V=s || ret=$? $SHOW_FAILURES_SCRIPT
+        #make package/kernel/aic8800/compile DEBUG=all BUILD_LOG=1 AUTOREMOVE=n V=s || ret=$? $SHOW_FAILURES_SCRIPT
+        #ls -alhR bin/ build_dir/
+
+        make package/kernel/aic8800/compile -j$(nproc) BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+        #ls -alhR  build_dir/ | grep aic8800
+
+        mkdir -p ./aic8800_debug_log
+        find build_dir -type f \
+          \( -name "*.cmd" -o -name "Module.symvers" \) \
+          -path "*aic8800*" \
+          -exec sh -c '
+            for file do
+              rel="${file#build_dir/}"
+              filename="${file##*/}"
+              newname="${filename#.}"
+              dst="./aic8800_debug_log/$(dirname "$rel")/$newname"
+              mkdir -p "$(dirname "$dst")"
+              cp "$file" "$dst"
+            done
+          ' sh {} +
+
+        #ls -alhR  build_dir/ | grep aic8800
+        #ls -alhR  aic8800_debug_log/
+
+        #make package/kernel/aic8800/package -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
+        
+        #ls -alhR  build_dir/ | grep aic8800
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: openwrt-${{ env.target }}-${{ env.subtarget }}-log
+        include-hidden-files: true
+        retention-days: 2
+        path: |
+          openwrt/bin/targets/${{ env.target }}/${{ env.subtarget }}/packages/*aic8800*.apk
+          openwrt/aic8800_debug_log/
+          openwrt/logs/package/kmod-aic8800-sdio/
+
+    - name: Upload build artifacts
+      if: false
+      uses: actions/upload-artifact@v4
+      with:
+        name: openwrt-${{ env.target }}-${{ env.subtarget }}-firmware
+        retention-days: 2
+        path: |
+          # 最终固件（img / bin 最重要）
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/*.img
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/*.bin
+          
+          # 设备树 DTB
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/*.dtb
+          
+          # 校验和文件
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/sha256sums
+          
+          # 内核文件
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/vmlinux
+          bin/targets/${{ env.target }}/${{ env.subtarget }}/zImage
+          
+          # DTS 设备树源码（从编译目录提取）
+          build_dir/target-*/linux-*/arch/arm64/boot/dts/rockchip/*.dts
+          build_dir/target-*/linux-*/arch/arm64/boot/dts/rockchip/*.dtsi
+          
+          # 完整编译日志
+          logs/

@@ -1,0 +1,36 @@
+name: DTCC
+
+on:
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      #- name: List directory structure
+      #  run: find . -type f -name "*.dts" | head -20
+
+      - name: Install dependencies (dtc device-tree-compiler)
+        run: |
+          sudo apt update
+          sudo apt install -y device-tree-compiler
+
+      - name: Compile RK3568 DTB
+        run: |
+          dtc -I dtb -O dts -s -H both -@ \
+            ./my3568/232-v25.dtb \
+            -o 232-v25-dtccdtb.dts
+
+      # 上传编译好的 dtb 供下载
+      - name: Upload DTB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 232-v25-dtcc
+          path: |
+            *.dtb
+            *.dts
+          retention-days: 2
