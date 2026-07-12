@@ -139,9 +139,6 @@ define Package/aic8800-sdio-firmware/install
 		$(PKG_BUILD_DIR)/src/SDIO/driver_fw/fw/aic8800D80/* \
 		$(1)/lib/firmware/aic8800/sdio/
 	$(CP) \
-		$(PKG_BUILD_DIR)/src/SDIO/driver_fw/fw/aic8800D80N/* \
-		$(1)/lib/firmware/aic8800/sdio/
-	$(CP) \
 		$(PKG_BUILD_DIR)/src/SDIO/driver_fw/fw/aic8800D80X2/* \
 		$(1)/lib/firmware/aic8800/sdio/
 	$(CP) \
@@ -158,16 +155,10 @@ define Package/aic8800-usb-firmware/install
 		$(PKG_BUILD_DIR)/src/USB/driver_fw/fw/aic8800D80/* \
 		$(1)/lib/firmware/aic8800/usb/
 	$(CP) \
-		$(PKG_BUILD_DIR)/src/USB/driver_fw/fw/aic8800D80N/* \
-		$(1)/lib/firmware/aic8800/usb/
-	$(CP) \
 		$(PKG_BUILD_DIR)/src/USB/driver_fw/fw/aic8800D80X2/* \
 		$(1)/lib/firmware/aic8800/usb/
 	$(CP) \
 		$(PKG_BUILD_DIR)/src/USB/driver_fw/fw/aic8800DC/* \
-		$(1)/lib/firmware/aic8800/usb/
-	$(CP) \
-		$(PKG_BUILD_DIR)/src/USB/driver_fw/fw/aic8800DLN/* \
 		$(1)/lib/firmware/aic8800/usb/
 endef
 
