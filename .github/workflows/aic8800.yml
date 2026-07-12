@@ -83,6 +83,7 @@ jobs:
         #echo CONFIG_ALL_KMODS=y >> .config
         
         echo CONFIG_PACKAGE_kmod-aic8800-sdio=y >> .config
+        echo CONFIG_SDIO_PWRCTRL=n >> .config
 
         echo CONFIG_DEVEL=y >> .config
         #echo CONFIG_AUTOREMOVE=y >> .config
