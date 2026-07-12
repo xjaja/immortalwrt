@@ -155,7 +155,7 @@ jobs:
 
         #make package/kernel/aic8800/package -j1 V=s BUILD_LOG=1 || ret=$? $SHOW_FAILURES_SCRIPT
         
-        ls -alhR  logs/ | grep aic8800
+        #ls -alhR  logs/ | grep aic8800
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -166,7 +166,7 @@ jobs:
         path: |
           openwrt/bin/targets/${{ env.target }}/${{ env.subtarget }}/packages/*aic8800*.apk
           openwrt/aic8800_debug_log/
-          openwrt/logs/package/kmod-aic8800-sdio/
+          openwrt/logs/package/kernel/aic8800/
 
     - name: Upload build artifacts
       if: false
