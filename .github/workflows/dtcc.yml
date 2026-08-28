@@ -22,14 +22,14 @@ jobs:
       - name: Compile RK3568 DTB
         run: |
           dtc -I dtb -O dts -s -H both -@ \
-            ./my3568/232-v25.dtb \
-            -o 232-v25-dtccdtb.dts
+            ./my3568/firmware-fdt.dtb \
+            -o lx232-dtccdtb.dts
 
       # 上传编译好的 dtb 供下载
       - name: Upload DTB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 232-v25-dtcc
+          name: lx232-dtcc
           path: |
             *.dtb
             *.dts
